@@ -440,4 +440,16 @@
         (is (not= (->> file1 fs/get-posix-file-permissions (map str) sort vec)
                   (->> file2 fs/get-posix-file-permissions (map str) sort vec)))
         (is (->> file1 fs/get-posix-file-permissions (map str) sort vec)
-            (->> file3 fs/get-posix-file-permissions (map str) sort vec))))))
+            (->> file3 fs/get-posix-file-permissions (map str) sort vec)))))
+  (testing "copies with the option to not follow symlinks"
+    (fs/with-temp-directory path
+      (let [file1 (fs/join-paths path "file1")
+            file2 (fs/join-paths path "file2")
+            file3 (fs/join-paths path "file3")
+            file4 (fs/join-paths path "file4")]
+        (create-file file1)
+        (fs/create-symlink file2 file1)
+        (fs/copy file2 file3)
+        (fs/copy file2 file4 :nofollow-links true)
+        (is (not (fs/symlink? file3)))
+        (is (fs/symlink? file4))))))
