@@ -1,0 +1,21 @@
+{:aliases {:test-bb {:extra-deps {borkdude/spartan.test {:git/url "https://github.com/borkdude/spartan.test.git"
+                                                         :sha "f3079bf153ed102fca07fe31bf8737cf823f9936"}}
+                     :extra-paths ["test"]
+                     :main-opts ["-m" "spartan.test" "-n" "nate.fs-test"]}
+           :test-clj {:extra-paths ["test"]
+                      :extra-deps {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                                              :sha "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
+                      :main-opts ["-m" "cognitect.test-runner"]}
+           :nrepl-server {:extra-deps {nrepl {:mvn/version "0.6.0"}
+                                       refactor-nrepl {:mvn/version "2.5.0-SNAPSHOT"}
+                                       cider/cider-nrepl {:mvn/version "0.23.0"}}
+                          :main-opts ["--main" "nrepl.cmdline"
+                                      "--middleware" "[refactor-nrepl.middleware/wrap-refactor,cider.nrepl/cider-middleware]"
+                                      "--port" "5748"
+                                      "--bind" "0.0.0.0"]}
+           :nrepl-client {:extra-deps {nrepl {:mvn/version "0.6.0"}
+                                       refactor-nrepl {:mvn/version "2.5.0-SNAPSHOT"}
+                                       cider/cider-nrepl {:mvn/version "0.23.0"}}
+                          :main-opts ["--main" "nrepl.cmdline" "--connect"
+                                      "--port" "5748"
+                                      "--host" "0.0.0.0"]}}}

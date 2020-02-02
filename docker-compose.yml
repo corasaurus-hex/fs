@@ -1,0 +1,22 @@
+version: '3.4'
+x-defaults:
+  &defaults
+  build: .
+  volumes:
+    - .:/code
+    - ~/.m2/repository:/home/user1/.m2/repository
+    - ~/.gitlibs:/home/user1/.gitlibs
+services:
+  base:
+    << : *defaults
+  test-clj:
+    << : *defaults
+    command: ["/code/script/clj/test"]
+  test-bb:
+    << : *defaults
+    command: ["/code/script/bb/test"]
+  nrepl-server:
+    << : *defaults
+    command: ["/code/script/clj/nrepl-server"]
+    ports:
+      - "5748:5748"
