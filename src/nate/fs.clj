@@ -16,6 +16,10 @@
 ;; TODO: glob https://github.com/Raynes/fs/blob/master/src/me/raynes/fs.clj#L390
 ;;       some kind of posix-ish sub-ns that has more posix-ish commands like rm, mv, cp, chmod, chown, chgrp, etc. maybe based on ruby FileUtils
 
+(defmacro ^:private debug [message & args]
+  `(prn ~message (into {} (zipmap ~(vec (map keyword args))
+                                  ~(vec args)))))
+
 (def default-file-system (FileSystems/getDefault))
 (def file-separator (.getSeparator default-file-system))
 (def current-path (.getCanonicalPath (io/file ".")))
@@ -60,12 +64,32 @@
    1 "--x"
    0 "---"})
 
+(def ^:private permission-to-numbers
+  {"READ" 4
+   "WRITE" 2
+   "EXECUTE" 1})
+
 (defn ^:private octal->string-permissions
   [permissions]
   (->> (str permissions)
        (map (comp number-to-permissions
                   #(Character/digit % 10)))
        (apply str)))
+
+(defn ^:private permissions->octal
+  [permissions]
+  (->> permissions
+       (into #{}
+             (map (comp #(string/split % #"_")
+                        str)))
+       (map (fn [[who perm]]
+              [who (permission-to-numbers perm)]))
+       (reduce (fn [m [who perm]]
+                 (update m who #(+ perm %)))
+               {"OWNER" 0 "GROUP" 0 "OTHERS" 0})
+       (#(+ (* 100 (% "OWNER"))
+            (* 10 (% "GROUP"))
+            (% "OTHERS")))))
 
 (defn ->posix-file-permissions
   [permissions]
@@ -263,10 +287,10 @@
   (doseq [[from to] copies]
     (Files/copy (as-path from) (as-path to) copy-options)))
 
-(defn ^:private dest-path-for
-  [from from-root to-root]
+(defn ^:private copy-from-to
+  [from-root to-root from]
   (let [subpath (subs from (count from-root))]
-    (str to-root subpath)))
+    [from (str to-root subpath)]))
 
 (defn ^:private recursive-files-and-directories
   [path & {:keys [nofollow-links]}]
@@ -278,6 +302,7 @@
     {:directories directories
      :files files}))
 
+
 (defn copy-recursively
   [from to & {:keys [replace-existing
                      copy-attributes
@@ -288,9 +313,17 @@
                       :nofollow-links nofollow-links)
         {:keys [files
                 directories]} (recursive-files-and-directories from
-                                                               :nofollow-links nofollow-links)]
-    (copy-all copy-options (map #(do [% (dest-path-for % from to)]) directories))
-    (copy-all copy-options (map #(do [% (dest-path-for % from to)]) files))))
+                                                               :nofollow-links nofollow-links)
+        to (if (and (directory? to)
+                    (not (.endsWith to "/")))
+             (join-paths to (last-path-segment from))
+             to)]
+    (copy-all copy-options
+              (map (partial copy-from-to from to)
+                   directories))
+    (copy-all copy-options
+              (map (partial copy-from-to from to)
+                   files))))
 
 (defn move
   [from to & {:keys [replace-existing
@@ -419,6 +452,10 @@
 (defn get-posix-file-permissions
   [path & {:keys [nofollow-links]}]
   (get-attribute path "posix:permissions" :nofollow-links nofollow-links))
+
+(defn get-octal-posix-file-permissions
+  [path & {:keys [nofollow-links]}]
+  (permissions->octal (get-posix-file-permissions path :nofollow-links nofollow-links)))
 
 (defn last-modified-time
   [path & {:keys [nofollow-links]}]

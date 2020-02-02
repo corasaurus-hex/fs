@@ -231,7 +231,7 @@
         (vreset! dir path)
         (let [file (fs/as-file path "foo" "bar" "baz")]
           (io/make-parents file)
-          (create-file file)
+          (fs/create-file file)
           (is (.exists file))
           (is (.startsWith (.getPath file) tmpdir))))
       (is (.startsWith @dir tmpdir))
@@ -261,7 +261,7 @@
   (testing "returns the canonical path"
     (is (= "/bar/baz" (fs/canonical-path "/foo/../bar/./baz")))
     (fs/with-temp-directory path
-      (create-file (fs/join-paths path "foo"))
+      (fs/create-file (fs/join-paths path "foo"))
       (fs/create-symlink (fs/join-paths path "bar") (fs/join-paths path "foo"))
       (is (= (fs/join-paths path "foo")
              (fs/canonical-path (fs/join-paths path "bar")))))))
@@ -272,9 +272,9 @@
            (fs/children))))
   (testing "returns the child paths of a specific directory"
     (fs/with-temp-directory path
-      (create-file (fs/join-paths path "bar"))
-      (create-file (fs/join-paths path "baz"))
-      (create-file (fs/join-paths path "foo"))
+      (fs/create-file (fs/join-paths path "bar"))
+      (fs/create-file (fs/join-paths path "baz"))
+      (fs/create-file (fs/join-paths path "foo"))
       (is (= ["bar" "baz" "foo"]
              (sort (fs/children path)))))))
 
@@ -327,7 +327,7 @@
   (testing "returns true for hidden files"
     (fs/with-temp-directory path
       (let [file-path (fs/join-paths path ".file")]
-        (create-file file-path)
+        (fs/create-file file-path)
         (is (fs/hidden? file-path)))))
   (testing "returns false for visible files"
     (fs/with-temp-file path
@@ -373,7 +373,7 @@
       (let [file1 (fs/join-paths path "file1")
             file2 (fs/join-paths path "file2")
             file3 (fs/join-paths path "file3")]
-        (create-file file1 "asdf")
+        (spit file1 "asdf")
         (fs/create-link file2 file1)
         (fs/create-symlink file3 file1)
         (is (fs/same-file? file1 file1))
@@ -383,8 +383,8 @@
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
             file2 (fs/join-paths path "file2")]
-        (create-file file1 "asdf")
-        (create-file file2 "asdf")
+        (spit file1 "asdf")
+        (spit file2 "asdf")
         (is (not (fs/same-file? file1 file2)))))))
 
 (deftest symlink?
@@ -392,7 +392,7 @@
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
             file2 (fs/join-paths path "file2")]
-        (create-file file1)
+        (fs/create-file file1)
         (fs/create-symlink file2 file1)
         (is (fs/symlink? file2)))))
   (testing "returns false when the file is not a symlink"
@@ -404,7 +404,7 @@
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
             file2 (fs/join-paths path "file2")]
-        (create-file file1)
+        (fs/create-file file1)
         (is (not (fs/exists? file2)))
         (fs/copy file1 file2)
         (is (fs/exists? file2)))))
@@ -413,7 +413,7 @@
       (let [dir1 (fs/join-paths path "dir1")
             dir2 (fs/join-paths path "dir2")]
         (fs/create-directory dir1)
-        (create-file (fs/join-paths dir1 "file1"))
+        (fs/create-file (fs/join-paths dir1 "file1"))
         (is (not (fs/exists? dir2)))
         (fs/copy dir1 dir2)
         (is (fs/exists? dir2))
@@ -422,8 +422,8 @@
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
             file2 (fs/join-paths path "file2")]
-        (create-file file1 "asdf")
-        (create-file file2 "fdsa")
+        (spit file1 "asdf")
+        (spit file2 "fdsa")
         (is (thrown? FileAlreadyExistsException
                      (fs/copy file1 file2)))
         (fs/copy file1 file2 :replace-existing true)
@@ -433,7 +433,7 @@
       (let [file1 (fs/join-paths path "file1")
             file2 (fs/join-paths path "file2")
             file3 (fs/join-paths path "file3")]
-        (create-file file1)
+        (fs/create-file file1)
         (fs/set-posix-file-permissions file1 421)
         (fs/copy file1 file2)
         (fs/copy file1 file3 :copy-attributes true)
@@ -447,9 +447,81 @@
             file2 (fs/join-paths path "file2")
             file3 (fs/join-paths path "file3")
             file4 (fs/join-paths path "file4")]
-        (create-file file1)
+        (fs/create-file file1)
         (fs/create-symlink file2 file1)
         (fs/copy file2 file3)
         (fs/copy file2 file4 :nofollow-links true)
+        (is (not (fs/symlink? file3)))
+        (is (fs/symlink? file4))))))
+
+(deftest copy-recursively
+  (testing "copies files"
+    (fs/with-temp-directory path
+      (let [file1 (fs/join-paths path "file1")
+            file2 (fs/join-paths path "file2")]
+        (fs/create-file file1)
+        (fs/copy-recursively file1 file2)
+        (is (fs/exists? file2)))))
+  (testing "copies directories"
+    (fs/with-temp-directory path
+      (let [dir1 (fs/join-paths path "dir1")
+            dir2 (fs/join-paths path "dir2")]
+        (fs/create-directory dir1)
+        (fs/copy-recursively dir1 dir2)
+        (is (fs/exists? dir2)))))
+  (testing "copies directories and their contents recursively"
+    (fs/with-temp-directory path
+      (let [dir1 {:path (fs/join-paths path "dir1")
+                  :file1 (fs/join-paths path "dir1" "file1")
+                  :file2 (fs/join-paths path "dir1" "file2")}
+            dir2 {:path (fs/join-paths path "dir2")
+                  :file1 (fs/join-paths path "dir2" "file1")
+                  :file2 (fs/join-paths path "dir2" "file2")}]
+        (fs/create-directory (:path dir1))
+        (fs/create-file (:file1 dir1))
+        (fs/create-file (:file2 dir1))
+        (fs/copy-recursively (:path dir1) (:path dir2))
+        (is (fs/exists? (:path dir2)))
+        (is (fs/exists? (:file1 dir2))
+        (is (fs/exists? (:file2 dir2)))))))
+  (testing "copies within the destination if it is a directory"
+    (fs/with-temp-directory path
+      (let [dir1 {:path (fs/join-paths path "dir1")
+                  :file1 (fs/join-paths path "dir1" "file1")}
+            dir2 {:path (fs/join-paths path "dir2")
+                  :file1 (fs/join-paths path "dir2" "file1")}]
+        (fs/create-directory (:path dir1))
+        (spit (:file1 dir1) "asdf11")
+        (fs/create-directory (:path dir2))
+        (spit (:file1 dir2) "asdf21")
+        (fs/copy-recursively (:path dir1) (:path dir2) :replace-existing true)
+        (is (= "asdf21" (slurp (:file1 dir2))))
+        (is (fs/exists? (fs/join-paths path "dir2" "dir1" "file1"))))))
+  (testing "copies with the replace-existing option"
+    (fs/with-temp-directory path
+      (let [file1 (fs/join-paths path "file1")
+            file2 (fs/join-paths path "file2")]
+        (spit file1 "asdf")
+        (spit file2 "fdsa")
+        (fs/copy-recursively file1 file2 :replace-existing true)
+        (is (= "asdf" (slurp file2))))))
+  (testing "copies with the copy-attributes option"
+    (fs/with-temp-directory path
+      (let [file1 (fs/join-paths path "file1")
+            file2 (fs/join-paths path "file2")]
+        (fs/create-file file1)
+        (fs/set-posix-file-permissions file1 777)
+        (fs/copy-recursively file1 file2 :copy-attributes true)
+        (is (= 777 (fs/get-octal-posix-file-permissions file2))))))
+  (testing "copies with the nofollow-links option"
+    (fs/with-temp-directory path
+      (let [file1 (fs/join-paths path "file1")
+            file2 (fs/join-paths path "file2")
+            file3 (fs/join-paths path "file3")
+            file4 (fs/join-paths path "file4")]
+        (fs/create-file file1)
+        (fs/create-symlink file2 file1)
+        (fs/copy-recursively file2 file3)
+        (fs/copy-recursively file2 file4 :nofollow-links true)
         (is (not (fs/symlink? file3)))
         (is (fs/symlink? file4))))))
