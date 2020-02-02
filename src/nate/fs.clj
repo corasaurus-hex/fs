@@ -24,7 +24,7 @@
   ^{:doc "The current user's home directory."}
   (str (System/getProperty "user.home")))
 
-(defn- coerce-path-to-string
+(defn ^:private coerce-path-to-string
   [path]
   (if (instance? Path path)
     (str path)
@@ -38,7 +38,7 @@
   [path & paths]
   (.toPath (apply as-file path paths)))
 
-(defn- first-path-segment
+(defn ^:private first-path-segment
   [path]
   (first (map str (as-path path))))
 
@@ -60,7 +60,7 @@
    1 "--x"
    0 "---"})
 
-(defn- octal->string-permissions
+(defn ^:private octal->string-permissions
   [permissions]
   (->> (str permissions)
        (map (comp number-to-permissions
@@ -258,17 +258,17 @@
                                            :copy-attributes copy-attributes
                                            :nofollow-links nofollow-links)))
 
-(defn- copy-all
+(defn ^:private copy-all
   [copy-options copies]
   (doseq [[from to] copies]
     (Files/copy (as-path from) (as-path to) copy-options)))
 
-(defn- dest-path-for
+(defn ^:private dest-path-for
   [from from-root to-root]
   (let [subpath (subs from (count from-root))]
     (str to-root subpath)))
 
-(defn- recursive-files-and-directories
+(defn ^:private recursive-files-and-directories
   [path & {:keys [nofollow-links]}]
   (let [paths (->> (as-file path)
                    file-seq
