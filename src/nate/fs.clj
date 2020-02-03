@@ -91,6 +91,12 @@
             (* 10 (% "GROUP"))
             (% "OTHERS")))))
 
+(defn ^:private permissions->string
+  [permissions]
+  (-> permissions
+      permissions->octal
+      octal->string-permissions))
+
 (defn ->posix-file-permissions
   [permissions]
   (cond
@@ -332,25 +338,55 @@
                                            :replace-existing replace-existing,
                                            :atomic-move atomic-move)))
 
+(defn rename
+  [current-path new-name & {:keys [replace-existing
+                                   atomic-move]}]
+  (let [from-path (as-path current-path)
+        to-path (.resolveSibling from-path new-name)]
+    (move from-path
+          to-path
+          :replace-existing replace-existing
+          :atomic-move atomic-move)))
+
 (defn create-directory
+  "Warning: Setting posix-file-permissions on create will not always
+  result in the permissions you specify. This is a limitation of the
+  implementation. To guarantee those permissions you should set the
+  permissions as another step after creating the file."
   [path & {:keys [posix-file-permissions]}]
   (Files/createDirectory (as-path path) (->file-attributes :posix-file-permissions posix-file-permissions)))
 
 (defn create-directories
+  "Warning: Setting posix-file-permissions on create will not always
+  result in the permissions you specify. This is a limitation of the
+  implementation. To guarantee those permissions you should set the
+  permissions as another step after creating the file."
   [path & {:keys [posix-file-permissions]}]
   (Files/createDirectories (as-path path) (->file-attributes :posix-file-permissions posix-file-permissions)))
 
+(defn append-to-file
+  [path content]
+  (spit (as-file path) content :append true))
+
 (defn create-file
-  [path & {:keys [posix-file-permissions]}]
-  (Files/createFile (as-path path) (->file-attributes :posix-file-permissions posix-file-permissions)))
+  "Warning: Setting posix-file-permissions on create will not always
+  result in the permissions you specify. This is a limitation of the
+  implementation. To guarantee those permissions you should set the
+  permissions as another step after creating the file."
+  [path & {:keys [posix-file-permissions content]}]
+  (Files/createFile (as-path path) (->file-attributes :posix-file-permissions posix-file-permissions))
+  (when content
+    (append-to-file path content)))
 
 (defn create-link
   [link-path target-path]
   (Files/createLink (as-path link-path) (as-path target-path)))
 
 (defn create-symlink
-  [link-path target-path & {:keys [posix-file-permissions]}]
-  (Files/createSymbolicLink (as-path link-path) (as-path target-path) (->file-attributes :posix-file-permissions posix-file-permissions)))
+  "Not allowing posix-file-permissions for file attributes since it is not supported on MacOS
+  or Linux for this operation."
+  [link-path target-path]
+  (Files/createSymbolicLink (as-path link-path) (as-path target-path) (->file-attributes)))
 
 (defn delete
   [path]
@@ -450,12 +486,12 @@
                  :nofollow-links nofollow-links))
 
 (defn get-posix-file-permissions
-  [path & {:keys [nofollow-links]}]
-  (get-attribute path "posix:permissions" :nofollow-links nofollow-links))
-
-(defn get-octal-posix-file-permissions
-  [path & {:keys [nofollow-links]}]
-  (permissions->octal (get-posix-file-permissions path :nofollow-links nofollow-links)))
+  [path & {:keys [nofollow-links format]}]
+  (let [permissions (get-attribute path "posix:permissions" :nofollow-links nofollow-links)]
+    (case format
+      :octal (permissions->octal permissions)
+      :string (permissions->string permissions)
+      permissions)))
 
 (defn last-modified-time
   [path & {:keys [nofollow-links]}]
