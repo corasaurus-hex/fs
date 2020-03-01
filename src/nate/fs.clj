@@ -122,12 +122,14 @@
   | -----------------|-------------|
   | `:nofollow-links`| Adds LinkOption/NOFOLLOW_LINKS to the array. Default: `false`
   "
-  [& {:keys [nofollow-links]}]
-  (into-array
-   LinkOption
-   (if nofollow-links
-     [LinkOption/NOFOLLOW_LINKS]
-     [])))
+  ([]
+   (make-array LinkOption 0))
+  ([{:keys [nofollow-links]}]
+   (into-array
+    LinkOption
+    (if nofollow-links
+      [LinkOption/NOFOLLOW_LINKS]
+      []))))
 
 (defn ->copy-options
   "Converts a hash-map of options into an array of CopyOption objects.
@@ -139,26 +141,30 @@
   | `:copy-attributes` | Adds StandardCopyOption/COPY_ATTRIBUTES to the array. Default: `false`
   | `:nofollow-links`  | Adds LinkOption/NOFOLLOW_LINKS to the array. Default: `false`
   "
-  [& {:keys [replace-existing
-             atomic-move
-             copy-attributes
-             nofollow-links]}]
-  (into-array
-   CopyOption
-   (cond-> []
-     replace-existing (conj StandardCopyOption/REPLACE_EXISTING)
-     atomic-move (conj StandardCopyOption/ATOMIC_MOVE)
-     copy-attributes (conj StandardCopyOption/COPY_ATTRIBUTES)
-     nofollow-links (conj LinkOption/NOFOLLOW_LINKS))))
+  ([]
+   (make-array CopyOption 0))
+  ([{:keys [replace-existing
+            atomic-move
+            copy-attributes
+            nofollow-links]}]
+   (into-array
+    CopyOption
+    (cond-> []
+      replace-existing (conj StandardCopyOption/REPLACE_EXISTING)
+      atomic-move (conj StandardCopyOption/ATOMIC_MOVE)
+      copy-attributes (conj StandardCopyOption/COPY_ATTRIBUTES)
+      nofollow-links (conj LinkOption/NOFOLLOW_LINKS)))))
 
 (defn ->file-attributes
   "Converts a seq of file-attributes into an array of FileAttribute objects."
-  [& {:keys [posix-file-permissions]}]
-  (into-array
-   FileAttribute
-   (if posix-file-permissions
-     [(PosixFilePermissions/asFileAttribute (->posix-file-permissions posix-file-permissions))]
-     [])))
+  ([]
+   (make-array FileAttribute 0))
+  ([{:keys [posix-file-permissions]}]
+   (into-array
+    FileAttribute
+    (if posix-file-permissions
+      [(PosixFilePermissions/asFileAttribute (->posix-file-permissions posix-file-permissions))]
+      []))))
 
 (defn join-paths
   "Joins one or more path segments into a single String path object."
@@ -250,12 +256,16 @@
     (catch NoSuchFileException _ nil)))
 
 (defn exists?
-  [path & {:keys [nofollow-links]}]
-  (Files/exists (as-path path) (->link-options :nofollow-links nofollow-links)))
+  ([path]
+   (exists? path {}))
+  ([path {:keys [nofollow-links]}]
+   (Files/exists (as-path path) (->link-options {:nofollow-links nofollow-links}))))
 
 (defn directory?
-  [path & {:keys [nofollow-links]}]
-  (Files/isDirectory (as-path path) (->link-options :nofollow-links nofollow-links)))
+  ([path]
+   (directory? path {}))
+  ([path {:keys [nofollow-links]}]
+   (Files/isDirectory (as-path path) (->link-options {:nofollow-links nofollow-links}))))
 
 (defn executable?
   [path]
@@ -274,8 +284,10 @@
   (Files/isWritable (as-path path)))
 
 (defn regular-file?
-  [path & {:keys [nofollow-links]}]
-  (Files/isRegularFile (as-path path) (->link-options :nofollow-links nofollow-links)))
+  ([path]
+   (regular-file? path {}))
+  ([path {:keys [nofollow-links]}]
+   (Files/isRegularFile (as-path path) (->link-options {:nofollow-links nofollow-links}))))
 
 (defn same-file?
   [path1 path2]
@@ -286,13 +298,15 @@
   (Files/isSymbolicLink (as-path path)))
 
 (defn copy
-  [from to & {:keys [replace-existing
-                     copy-attributes
-                     nofollow-links]}]
-  (Files/copy (as-path from) (as-path to) (->copy-options
-                                           :replace-existing replace-existing
-                                           :copy-attributes copy-attributes
-                                           :nofollow-links nofollow-links)))
+  ([from to]
+   (copy from to {}))
+  ([from to {:keys [replace-existing
+                    copy-attributes
+                    nofollow-links]}]
+   (Files/copy (as-path from) (as-path to) (->copy-options
+                                            {:replace-existing replace-existing
+                                             :copy-attributes copy-attributes
+                                             :nofollow-links nofollow-links}))))
 
 (defn ^:private copy-all
   [copy-options copies]
@@ -305,78 +319,95 @@
     [from (str to-root subpath)]))
 
 (defn ^:private recursive-files-and-directories
-  [path & {:keys [nofollow-links]}]
-  (let [paths (->> (as-file path)
-                   file-seq
-                   (group-by #(directory? % :nofollow-links nofollow-links)))
-        directories (sort (map str (or (paths true) [])))
-        files (sort (map str (or (paths false) [])))]
-    {:directories directories
-     :files files}))
+  ([path]
+   (recursive-files-and-directories path {}))
+  ([path {:keys [nofollow-links]}]
+   (let [paths (->> (as-file path)
+                    file-seq
+                    (group-by #(directory? % {:nofollow-links nofollow-links})))
+         directories (sort (map str (or (paths true) [])))
+         files (sort (map str (or (paths false) [])))]
+     {:directories directories
+      :files files})))
 
 
 (defn copy-recursively
-  [from to & {:keys [replace-existing
-                     copy-attributes
-                     nofollow-links]}]
-  (let [copy-options (->copy-options
-                      :replace-existing replace-existing
-                      :copy-attributes copy-attributes
-                      :nofollow-links nofollow-links)
-        {:keys [files
-                directories]} (recursive-files-and-directories from
-                                                               :nofollow-links nofollow-links)
-        to (if (and (directory? to)
-                    (not (.endsWith to "/")))
-             (join-paths to (last-path-segment from))
-             to)]
-    (copy-all copy-options
-              (map (partial copy-from-to from to)
-                   directories))
-    (copy-all copy-options
-              (map (partial copy-from-to from to)
-                   files))))
+  ([from to]
+   (copy-recursively from to {}))
+  ([from to {:keys [replace-existing
+                    copy-attributes
+                    nofollow-links]}]
+   (let [copy-options (->copy-options
+                       {:replace-existing replace-existing
+                        :copy-attributes copy-attributes
+                        :nofollow-links nofollow-links})
+         {:keys [files
+                 directories]} (recursive-files-and-directories from
+                                                                {:nofollow-links nofollow-links})
+         to (if (and (directory? to)
+                     (not (.endsWith to "/")))
+              (join-paths to (last-path-segment from))
+              to)]
+     (copy-all copy-options
+               (map (partial copy-from-to from to)
+                    directories))
+     (copy-all copy-options
+               (map (partial copy-from-to from to)
+                    files)))))
 
 (defn move
-  [from to & {:keys [replace-existing
-                     atomic-move]}]
-  (Files/move (as-path from) (as-path to) (->copy-options
-                                           :replace-existing replace-existing,
-                                           :atomic-move atomic-move)))
+  ([from to]
+   (move from to {}))
+  ([from to {:keys [replace-existing
+                    atomic-move]}]
+   (Files/move (as-path from) (as-path to) (->copy-options
+                                            {:replace-existing replace-existing,
+                                             :atomic-move atomic-move}))))
 
 (defn rename
-  [current-path new-name & {:keys [replace-existing
-                                   atomic-move]}]
-  (let [from-path (as-path current-path)
-        to-path (.resolveSibling from-path new-name)]
-    (move from-path
-          to-path
-          :replace-existing replace-existing
-          :atomic-move atomic-move)))
+  ([current-path new-name]
+   (rename current-path new-name {}))
+  ([current-path new-name {:keys [replace-existing
+                                  atomic-move]}]
+   (let [from-path (as-path current-path)
+         to-path (.resolveSibling from-path new-name)]
+     (move from-path
+           to-path
+           {:replace-existing replace-existing
+            :atomic-move atomic-move}))))
 
 (defn create-directory
   "Warning: Setting posix-file-permissions on create will not always
   result in the permissions you specify. This is a limitation of the
   implementation. To guarantee those permissions you should set the
   permissions as another step after creating the file."
-  [path & {:keys [posix-file-permissions]}]
-  (Files/createDirectory (as-path path) (->file-attributes :posix-file-permissions posix-file-permissions)))
+  ([path]
+   (create-directory path {}))
+  ([path {:keys [posix-file-permissions]}]
+   (Files/createDirectory (as-path path)
+                          (->file-attributes {:posix-file-permissions posix-file-permissions}))))
 
 (defn create-directories
   "Warning: Setting posix-file-permissions on create will not always
   result in the permissions you specify. This is a limitation of the
   implementation. To guarantee those permissions you should set the
   permissions as another step after creating the file."
-  [path & {:keys [posix-file-permissions]}]
-  (Files/createDirectories (as-path path) (->file-attributes :posix-file-permissions posix-file-permissions)))
+  ([path]
+   (create-directories path {}))
+  ([path {:keys [posix-file-permissions]}]
+   (Files/createDirectories (as-path path)
+                            (->file-attributes {:posix-file-permissions posix-file-permissions}))))
 
 (defn create-temp-directory
   "Warning: Setting posix-file-permissions on create will not always
   result in the permissions you specify. This is a limitation of the
   implementation. To guarantee those permissions you should set the
   permissions as another step after creating the file."
-  [prefix & {:keys [posix-file-permissions]}]
-  (Files/createTempDirectory prefix (->file-attributes :posix-file-permissions posix-file-permissions)))
+  ([prefix]
+   (create-temp-directory prefix {}))
+  ([prefix {:keys [posix-file-permissions]}]
+   (Files/createTempDirectory prefix
+                              (->file-attributes {:posix-file-permissions posix-file-permissions}))))
 
 (defn append-to-file
   [path content]
@@ -387,22 +418,29 @@
   result in the permissions you specify. This is a limitation of the
   implementation. To guarantee those permissions you should set the
   permissions as another step after creating the file."
-  [path & {:keys [posix-file-permissions content]}]
-  (let [file (Files/createFile (as-path path) (->file-attributes :posix-file-permissions posix-file-permissions))]
-    (when content
-      (append-to-file path content))
-    file))
+  ([path]
+   (create-file path {}))
+  ([path {:keys [posix-file-permissions content]}]
+   (let [file (Files/createFile (as-path path)
+                                (->file-attributes {:posix-file-permissions posix-file-permissions}))]
+     (when content
+       (append-to-file path content))
+     file)))
 
 (defn create-temp-file
   "Warning: Setting posix-file-permissions on create will not always
   result in the permissions you specify. This is a limitation of the
   implementation. To guarantee those permissions you should set the
   permissions as another step after creating the file."
-  [prefix suffix & {:keys [posix-file-permissions content]}]
-  (let [path (Files/createTempFile prefix suffix (->file-attributes :posix-file-permissions posix-file-permissions))]
-    (when content
-      (append-to-file path content))
-    path))
+  ([prefix suffix]
+   (create-temp-file prefix suffix {}))
+  ([prefix suffix {:keys [posix-file-permissions content]}]
+   (let [path (Files/createTempFile prefix
+                                    suffix
+                                    (->file-attributes {:posix-file-permissions posix-file-permissions}))]
+     (when content
+       (append-to-file path content))
+     path)))
 
 (defn create-link
   [link-path target-path]
@@ -423,10 +461,14 @@
   (Files/deleteIfExists (as-path path)))
 
 (defn delete-recursively
-  [path & {:keys [nofollow-links] :or {nofollow-links true}}]
-  (let [{:keys [files directories]} (recursive-files-and-directories path :nofollow-links nofollow-links)]
-    (doseq [path (concat files (reverse directories))]
-      (.delete (as-file path)))))
+  ([path]
+   (delete-recursively path {}))
+  ([path {:keys [nofollow-links]
+          :or {nofollow-links true}}]
+   (let [{:keys [files directories]} (recursive-files-and-directories path
+                                                                      {:nofollow-links nofollow-links})]
+     (doseq [path (concat files (reverse directories))]
+       (.delete (as-file path))))))
 
 (defn file-system-for
   [path]
@@ -437,26 +479,41 @@
   (.supportedFileAttributeViews (file-system-for path)))
 
 (defn get-attribute
-  [path attribute & {:keys [nofollow-links]}]
-  (Files/getAttribute (as-path path) attribute (->link-options :nofollow-links nofollow-links)))
+  ([path attribute]
+   (get-attribute path attribute {}))
+  ([path attribute {:keys [nofollow-links]}]
+   (Files/getAttribute (as-path path)
+                       attribute
+                       (->link-options {:nofollow-links nofollow-links}))))
 
 (defn set-attribute
-  [path attribute value & {:keys [nofollow-links]}]
-  (Files/setAttribute (as-path path) attribute value (->link-options :nofollow-links nofollow-links)))
+  ([path attribute value]
+   (set-attribute path attribute value {}))
+  ([path attribute value {:keys [nofollow-links]}]
+   (Files/setAttribute (as-path path)
+                       attribute
+                       value
+                       (->link-options {:nofollow-links nofollow-links}))))
 
 (defn read-attributes
-  [path attributes & {:keys [nofollow-links]}]
-  (Files/readAttributes (as-path path) attributes (->link-options :nofollow-links nofollow-links)))
+  ([path attributes]
+   (read-attributes path attributes {}))
+  ([path attributes {:keys [nofollow-links]}]
+   (Files/readAttributes (as-path path)
+                         attributes
+                         (->link-options {:nofollow-links nofollow-links}))))
 
 (defn read-all-attributes
-  [path & {:keys [nofollow-links]}]
-  (let [path (as-path path)
-        file-system (.getFileSystem path)
-        views (.supportedFileAttributeViews file-system)
-        link-options (->link-options :nofollow-links nofollow-links)]
-    (into {}
-          (map #(do [% (Files/readAttributes path (str % ":*") link-options)]))
-          views)))
+  ([path]
+   (read-all-attributes path {}))
+  ([path {:keys [nofollow-links]}]
+   (let [path (as-path path)
+         file-system (.getFileSystem path)
+         views (.supportedFileAttributeViews file-system)
+         link-options (->link-options {:nofollow-links nofollow-links})]
+     (into {}
+           (map #(do [% (Files/readAttributes path (str % ":*") link-options)]))
+           views))))
 
 (defn lookup-user!
   ([user-name]
@@ -491,64 +548,88 @@
      (catch UserPrincipalNotFoundException _ nil))))
 
 (defn set-owner
-  [path user-name & {:keys [nofollow-links]}]
-  (let [file-system (file-system-for path)
-        user (lookup-user! user-name file-system)]
-    (set-attribute path "owner:owner" user :nofollow-links nofollow-links)))
+  ([path user-name]
+   (set-owner path user-name {}))
+  ([path user-name {:keys [nofollow-links]}]
+   (let [file-system (file-system-for path)
+         user (lookup-user! user-name file-system)]
+     (set-attribute path
+                    "owner:owner"
+                    user
+                    {:nofollow-links nofollow-links}))))
 
 (defn set-group
-  [path group-name & {:keys [nofollow-links]}]
-  (let [path (as-path path)
-        file-system (.getFileSystem path)
-        group (lookup-group! group-name file-system)
-        link-options (->link-options :nofollow-links nofollow-links)]
-    (Files/setAttribute path "posix:group" group link-options)))
+  ([path group-name]
+   (set-group path group-name {}))
+  ([path group-name {:keys [nofollow-links]}]
+   (let [path (as-path path)
+         file-system (.getFileSystem path)
+         group (lookup-group! group-name file-system)
+         link-options (->link-options {:nofollow-links nofollow-links})]
+     (Files/setAttribute path "posix:group" group link-options))))
 
 (defn set-posix-file-permissions
-  [path permissions & {:keys [nofollow-links]}]
-  (set-attribute path
-                 "posix:permissions"
-                 (->posix-file-permissions permissions)
-                 :nofollow-links nofollow-links))
+  ([path permissions]
+   (set-posix-file-permissions path permissions {}))
+  ([path permissions {:keys [nofollow-links]}]
+   (set-attribute path
+                  "posix:permissions"
+                  (->posix-file-permissions permissions)
+                  {:nofollow-links nofollow-links})))
 
 (defn get-posix-file-permissions
-  [path & {:keys [nofollow-links format]}]
-  (let [permissions (get-attribute path "posix:permissions" :nofollow-links nofollow-links)]
-    (case format
-      :octal (permissions->octal permissions)
-      :string (permissions->string permissions)
-      permissions)))
+  ([path]
+   (get-posix-file-permissions path {}))
+  ([path {:keys [nofollow-links format]}]
+   (let [permissions (get-attribute path "posix:permissions" {:nofollow-links nofollow-links})]
+     (case format
+       :octal (permissions->octal permissions)
+       :string (permissions->string permissions)
+       permissions))))
 
 (defn last-modified-time
-  [path & {:keys [nofollow-links]}]
-  (get-attribute path "basic:lastModifiedTime" :nofollow-links nofollow-links))
+  ([path]
+   (last-modified-time path {}))
+  ([path {:keys [nofollow-links]}]
+   (get-attribute path "basic:lastModifiedTime" {:nofollow-links nofollow-links})))
 
 (defn set-last-modified-time
-  [path time & {:keys [nofollow-links]}]
-  (set-attribute path "basic:lastModifiedTime" time :nofollow-links nofollow-links))
+  ([path time]
+   (set-last-modified-time path time {}))
+  ([path time {:keys [nofollow-links]}]
+   (set-attribute path "basic:lastModifiedTime" time {:nofollow-links nofollow-links})))
 
 (defn last-access-time
-  [path & {:keys [nofollow-links]}]
-  (get-attribute path "basic:lastAccessTime" :nofollow-links nofollow-links))
+  ([path]
+   (last-access-time path {}))
+  ([path {:keys [nofollow-links]}]
+   (get-attribute path "basic:lastAccessTime" {:nofollow-links nofollow-links})))
 
 (defn set-last-access-time
-  [path time & {:keys [nofollow-links]}]
-  (set-attribute path "basic:lastAccessTime" time :nofollow-links nofollow-links))
+  ([path time]
+   (set-last-access-time path time {}))
+  ([path time {:keys [nofollow-links]}]
+   (set-attribute path "basic:lastAccessTime" time {:nofollow-links nofollow-links})))
 
 (defn creation-time
-  [path & {:keys [nofollow-links]}]
-  (get-attribute path "basic:creationTime" :nofollow-links nofollow-links))
+  ([path]
+   (creation-time path {}))
+  ([path {:keys [nofollow-links]}]
+   (get-attribute path "basic:creationTime" {:nofollow-links nofollow-links})))
 
 (defn set-creation-time
-  [path time & {:keys [nofollow-links]}]
-  (set-attribute path "basic:creationTime" time :nofollow-links nofollow-links))
+  ([path time]
+   (set-creation-time path time {}))
+  ([path time {:keys [nofollow-links]}]
+   (set-attribute path "basic:creationTime" time {:nofollow-links nofollow-links})))
 
 (defn with-temp-directory*
   [f]
   (let [dir (canonical-path (Files/createTempDirectory "fs" (->file-attributes)))]
     (try
       (f dir)
-      (finally (delete-recursively dir)))))
+      (finally
+        (delete-recursively dir)))))
 
 (defmacro with-temp-directory [path-sym & body]
   `(with-temp-directory* (fn [~path-sym] ~@body)))

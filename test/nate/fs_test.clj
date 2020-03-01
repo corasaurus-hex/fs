@@ -55,7 +55,7 @@
   (testing "creates an empty array"
     (is (empty? (fs/->link-options))))
   (testing "creates an array with nofollow-links set"
-    (is (= [LinkOption/NOFOLLOW_LINKS] (vec (fs/->link-options :nofollow-links true))))))
+    (is (= [LinkOption/NOFOLLOW_LINKS] (vec (fs/->link-options {:nofollow-links true}))))))
 
 (deftest test-->copy-options
   (testing "creates an empty array"
@@ -65,11 +65,11 @@
                  :copy-attributes StandardCopyOption/COPY_ATTRIBUTES
                  :nofollow-links LinkOption/NOFOLLOW_LINKS}]
     (doseq [[option value] options]
-      (let [result (fs/->copy-options option true)]
+      (let [result (fs/->copy-options {option true})]
         (testing (str "creates an array with " option " set")
           (is (= [value] (vec result))))))
     (let [args (flatten (vec (zipmap (keys options) (repeat true))))
-          result (apply fs/->copy-options args)]
+          result (fs/->copy-options args)]
       (testing "creates an array with all options set"
         (is (= (frequencies result) (frequencies (vals options))))))))
 
@@ -83,7 +83,7 @@
                          PosixFilePermission/GROUP_READ,
                          PosixFilePermission/GROUP_EXECUTE,
                          PosixFilePermission/OTHERS_READ])
-           (-> (fs/->file-attributes :posix-file-permissions 754)
+           (-> (fs/->file-attributes {:posix-file-permissions 754})
                first
                .value
                vec
@@ -213,17 +213,17 @@
                    (.isDirectory file)))))
       (is (.startsWith @dir fs/tmpdir))
       (is (not (.exists (fs/as-file @dir)))))))
-  (testing "recursively deletes everything within that directory"
-    (let [dir (volatile! nil)]
-      (fs/with-temp-directory path
-        (vreset! dir path)
-        (let [file (fs/as-file path "foo" "bar" "baz")]
-          (io/make-parents file)
-          (fs/create-file file)
-          (is (.exists file))
-          (is (.startsWith (.getPath file) fs/tmpdir))))
-      (is (.startsWith @dir fs/tmpdir))
-      (is (not (.exists (fs/as-file @dir))))))
+(testing "recursively deletes everything within that directory"
+  (let [dir (volatile! nil)]
+    (fs/with-temp-directory path
+      (vreset! dir path)
+      (let [file (fs/as-file path "foo" "bar" "baz")]
+        (io/make-parents file)
+        (fs/create-file file)
+        (is (.exists file))
+        (is (.startsWith (.getPath file) fs/tmpdir))))
+    (is (.startsWith @dir fs/tmpdir))
+    (is (not (.exists (fs/as-file @dir))))))
 
 (deftest test-with-temp-file
   (testing "calls the function with a path to an existing file"
@@ -285,7 +285,7 @@
     (fs/with-temp-directory path
       (fs/create-symlink (fs/as-path path "foo") (fs/as-path path "bar"))
       (is (not (fs/exists? (fs/join-paths path "foo"))))
-      (is (fs/exists? (fs/join-paths path "foo") :nofollow-links true)))))
+      (is (fs/exists? (fs/join-paths path "foo") {:nofollow-links true})))))
 
 (deftest test-directory?
   (testing "returns true for directories"
@@ -299,7 +299,7 @@
       (let [link-path (fs/join-paths path "my-link")]
         (fs/create-symlink link-path path)
         (is (fs/directory? link-path))
-        (is (not (fs/directory? link-path :nofollow-links true)))))))
+        (is (not (fs/directory? link-path {:nofollow-links true})))))))
 
 (deftest test-executable?
   (testing "returns true for executable files"
@@ -353,7 +353,7 @@
       (let [link-path (fs/join-paths (fs/parent-path path) "my-link")]
         (fs/create-symlink link-path path)
         (is (fs/regular-file? link-path))
-        (is (not (fs/regular-file? link-path :nofollow-links true)))))))
+        (is (not (fs/regular-file? link-path {:nofollow-links true})))))))
 
 (deftest test-same-file?
   (testing "returns true when the files are the same"
@@ -361,7 +361,7 @@
       (let [file1 (fs/join-paths path "file1")
             file2 (fs/join-paths path "file2")
             file3 (fs/join-paths path "file3")]
-        (fs/create-file file1 :content "asdf")
+        (fs/create-file file1 {:content "asdf"})
         (fs/create-link file2 file1)
         (fs/create-symlink file3 file1)
         (is (fs/same-file? file1 file1))
@@ -371,8 +371,8 @@
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
             file2 (fs/join-paths path "file2")]
-        (fs/create-file file1 :content "asdf")
-        (fs/create-file file2 :content "asdf")
+        (fs/create-file file1 {:content "asdf"})
+        (fs/create-file file2 {:content "asdf"})
         (is (not (fs/same-file? file1 file2)))))))
 
 (deftest test-symlink?
@@ -410,11 +410,11 @@
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
             file2 (fs/join-paths path "file2")]
-        (fs/create-file file1 :content "asdf")
-        (fs/create-file file2 :content "fdsa")
+        (fs/create-file file1 {:content "asdf"})
+        (fs/create-file file2 {:content "fdsa"})
         (is (thrown? FileAlreadyExistsException
                      (fs/copy file1 file2)))
-        (fs/copy file1 file2 :replace-existing true)
+        (fs/copy file1 file2 {:replace-existing true})
         (is (= (slurp file1) (slurp file2))))))
   (testing "copies with the option to copy attributes"
     (fs/with-temp-directory path
@@ -424,7 +424,7 @@
         (fs/create-file file1)
         (fs/set-posix-file-permissions file1 421)
         (fs/copy file1 file2)
-        (fs/copy file1 file3 :copy-attributes true)
+        (fs/copy file1 file3 {:copy-attributes true})
         (is (not= (->> file1 fs/get-posix-file-permissions (map str) sort vec)
                   (->> file2 fs/get-posix-file-permissions (map str) sort vec)))
         (is (->> file1 fs/get-posix-file-permissions (map str) sort vec)
@@ -438,7 +438,7 @@
         (fs/create-file file1)
         (fs/create-symlink file2 file1)
         (fs/copy file2 file3)
-        (fs/copy file2 file4 :nofollow-links true)
+        (fs/copy file2 file4 {:nofollow-links true})
         (is (not (fs/symlink? file3)))
         (is (fs/symlink? file4))))))
 
@@ -471,7 +471,7 @@
         (fs/copy-recursively (:path dir1) (:path dir2))
         (is (fs/exists? (:path dir2)))
         (is (fs/exists? (:file1 dir2))
-        (is (fs/exists? (:file2 dir2)))))))
+            (is (fs/exists? (:file2 dir2)))))))
   (testing "copies within the destination if it is a directory"
     (fs/with-temp-directory path
       (let [dir1 {:path (fs/join-paths path "dir1")
@@ -479,19 +479,19 @@
             dir2 {:path (fs/join-paths path "dir2")
                   :file1 (fs/join-paths path "dir2" "file1")}]
         (fs/create-directory (:path dir1))
-        (fs/create-file (:file1 dir1) :content "asdf11")
+        (fs/create-file (:file1 dir1) {:content "asdf11"})
         (fs/create-directory (:path dir2))
-        (fs/create-file (:file1 dir2) :content "asdf21")
-        (fs/copy-recursively (:path dir1) (:path dir2) :replace-existing true)
+        (fs/create-file (:file1 dir2) {:content "asdf21"})
+        (fs/copy-recursively (:path dir1) (:path dir2) {:replace-existing true})
         (is (= "asdf21" (slurp (:file1 dir2))))
         (is (fs/exists? (fs/join-paths path "dir2" "dir1" "file1"))))))
   (testing "copies with the replace-existing option"
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
             file2 (fs/join-paths path "file2")]
-        (fs/create-file file1 :content "asdf")
-        (fs/create-file file2 :content "fdsa")
-        (fs/copy-recursively file1 file2 :replace-existing true)
+        (fs/create-file file1 {:content "asdf"})
+        (fs/create-file file2 {:content "fdsa"})
+        (fs/copy-recursively file1 file2 {:replace-existing true})
         (is (= "asdf" (slurp file2))))))
   (testing "copies with the copy-attributes option"
     (fs/with-temp-directory path
@@ -499,8 +499,8 @@
             file2 (fs/join-paths path "file2")]
         (fs/create-file file1)
         (fs/set-posix-file-permissions file1 777)
-        (fs/copy-recursively file1 file2 :copy-attributes true)
-        (is (= 777 (fs/get-posix-file-permissions file2 :format :octal))))))
+        (fs/copy-recursively file1 file2 {:copy-attributes true})
+        (is (= 777 (fs/get-posix-file-permissions file2 {:format :octal}))))))
   (testing "copies with the nofollow-links option"
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
@@ -510,7 +510,7 @@
         (fs/create-file file1)
         (fs/create-symlink file2 file1)
         (fs/copy-recursively file2 file3)
-        (fs/copy-recursively file2 file4 :nofollow-links true)
+        (fs/copy-recursively file2 file4 {:nofollow-links true})
         (is (not (fs/symlink? file3)))
         (is (fs/symlink? file4))))))
 
@@ -535,11 +535,11 @@
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
             file2 (fs/join-paths path "file2")]
-        (fs/create-file file1 :content "asdf")
-        (fs/create-file file2 :content "fdsa")
+        (fs/create-file file1 {:content "asdf"})
+        (fs/create-file file2 {:content "fdsa"})
         (is (thrown? FileAlreadyExistsException
-                    (fs/move file1 file2)))
-        (fs/move file1 file2 :replace-existing true)
+                     (fs/move file1 file2)))
+        (fs/move file1 file2 {:replace-existing true})
         (is (not (fs/exists? file1)))
         (is (fs/exists? file2))
         (is (= "asdf" (slurp file2))))))
@@ -548,7 +548,7 @@
       (let [file1 (fs/join-paths path "file1")
             file2 (fs/join-paths path "file2")]
         (fs/create-file file1)
-        (fs/move file1 file2 :atomic-move true)
+        (fs/move file1 file2 {:atomic-move true})
         (is (not (fs/exists? file1)))
         (is (fs/exists? file2))))))
 
@@ -573,11 +573,11 @@
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
             file2 (fs/join-paths path "file2")]
-        (fs/create-file file1 :content "asdf")
-        (fs/create-file file2 :content "fdsa")
+        (fs/create-file file1 {:content "asdf"})
+        (fs/create-file file2 {:content "fdsa"})
         (is (thrown? FileAlreadyExistsException
-                    (fs/rename file1 "file2")))
-        (fs/rename file1 "file2" :replace-existing true)
+                     (fs/rename file1 "file2")))
+        (fs/rename file1 "file2" {:replace-existing true})
         (is (not (fs/exists? file1)))
         (is (fs/exists? file2))
         (is (= "asdf" (slurp file2))))))
@@ -586,7 +586,7 @@
       (let [file1 (fs/join-paths path "file1")
             file2 (fs/join-paths path "file2")]
         (fs/create-file file1)
-        (fs/rename file1 "file2" :atomic-move true)
+        (fs/rename file1 "file2" {:atomic-move true})
         (is (not (fs/exists? file1)))
         (is (fs/exists? file2))))))
 
@@ -599,9 +599,9 @@
   (testing "creates a directory with posix file permissions"
     (fs/with-temp-directory path
       (let [dir (fs/join-paths path "dir")]
-        (fs/create-directory dir :posix-file-permissions 200)
+        (fs/create-directory dir {:posix-file-permissions 200})
         (is (fs/directory? dir))
-        (is (= 200 (fs/get-posix-file-permissions dir :format :octal)))))))
+        (is (= 200 (fs/get-posix-file-permissions dir {:format :octal})))))))
 
 (deftest test-create-directories
   (testing "creates a directory and all parent directories"
@@ -612,10 +612,10 @@
   (testing "creates directories with the :posix-file-permissions option"
     (fs/with-temp-directory path
       (let [dir (fs/join-paths path "dir1" "dir2" "dir3")]
-        (fs/create-directories dir :posix-file-permissions 700)
+        (fs/create-directories dir {:posix-file-permissions 700})
         (is (fs/directory? dir))
-        (is (= 700 (fs/get-posix-file-permissions dir :format :octal)))
-        (is (= 700 (fs/get-posix-file-permissions (fs/parent-path dir) :format :octal)))))))
+        (is (= 700 (fs/get-posix-file-permissions dir {:format :octal})))
+        (is (= 700 (fs/get-posix-file-permissions (fs/parent-path dir) {:format :octal})))))))
 
 (deftest test-create-temp-directory
   (testing "creates a temp directory with the given prefix"
@@ -626,9 +626,9 @@
         (is (.startsWith (fs/last-path-segment path) "test-fs"))
         (finally (fs/delete-recursively path)))))
   (testing "creates a directory with posix file permissions"
-    (let [path (fs/create-temp-directory "test-fs" :posix-file-permissions 200)]
+    (let [path (fs/create-temp-directory "test-fs" {:posix-file-permissions 200})]
       (try
-        (is (= 200 (fs/get-posix-file-permissions path :format :octal)))
+        (is (= 200 (fs/get-posix-file-permissions path {:format :octal})))
         (finally (fs/delete-recursively path))))))
 
 (deftest test-append-to-file
@@ -647,9 +647,9 @@
   (testing "creates a file with posix file permissions"
     (fs/with-temp-directory path
       (let [file (fs/join-paths path "file")]
-        (fs/create-file file :posix-file-permissions 200)
+        (fs/create-file file {:posix-file-permissions 200})
         (is (fs/regular-file? file))
-        (is (= 200 (fs/get-posix-file-permissions file :format :octal)))))))
+        (is (= 200 (fs/get-posix-file-permissions file {:format :octal})))))))
 
 (deftest test-create-link
   (testing "creates a hard link to a file"
@@ -713,7 +713,7 @@
         (fs/create-file file2)
         (is (fs/exists? dir1))
         (is (fs/exists? dir2))
-        (fs/delete-recursively dir2 :nofollow-links true)
+        (fs/delete-recursively dir2 {:nofollow-links true})
         (is (not (fs/exists? dir2)))
         (is (fs/exists? dir1))))))
 
