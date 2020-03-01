@@ -2,7 +2,6 @@
   {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude []}}
                        :lint-as {nate.fs/with-temp-directory cljs.test/async
                                  nate.fs/with-temp-file cljs.test/async}}}
-
   (:require [clojure.test :as test :refer [deftest is testing]]
             [nate.fs :as fs]
             [clojure.java.io :as io])
@@ -13,18 +12,12 @@
                           Path)
            (java.nio.file.attribute PosixFilePermission)))
 
-(def tmpdir
-  (let [t (System/getProperty "java.io.tmpdir")]
-    (fs/canonical-path (if (.endsWith t "/")
-                         t
-                         (str t "/")))))
-
-(deftest as-path
+(deftest test-as-path
   (testing "creates a path object"
     (is (instance? Path (fs/as-path "foo")))
     (is (= "/foo/bar" (.toString (fs/as-path "/foo/bar"))))))
 
-(deftest expand-home
+(deftest test-expand-home
   (testing "changes ~ into the user home path"
     (is (= fs/home (fs/expand-home "~")))
     (testing "changes a leading ~/ into the user home path"
@@ -33,7 +26,7 @@
       (is (= "/foo/~/bar" (fs/expand-home "/foo/~/bar")))
       (is (= "~foo/bar" (fs/expand-home "~foo/bar"))))))
 
-(deftest ->posix-file-permissions
+(deftest test-->posix-file-permissions
   (testing "creates from a string"
     (is (= [PosixFilePermission/OWNER_READ,
             PosixFilePermission/OWNER_WRITE,
@@ -58,13 +51,13 @@
                           #"Invalid permissions!"
                           (fs/->posix-file-permissions {})))))
 
-(deftest ->link-options
+(deftest test-->link-options
   (testing "creates an empty array"
     (is (empty? (fs/->link-options))))
   (testing "creates an array with nofollow-links set"
     (is (= [LinkOption/NOFOLLOW_LINKS] (vec (fs/->link-options :nofollow-links true))))))
 
-(deftest ->copy-options
+(deftest test-->copy-options
   (testing "creates an empty array"
     (is (empty? (fs/->copy-options))))
   (let [options {:replace-existing StandardCopyOption/REPLACE_EXISTING
@@ -80,7 +73,7 @@
       (testing "creates an array with all options set"
         (is (= (frequencies result) (frequencies (vals options))))))))
 
-(deftest ->file-attributes
+(deftest test-->file-attributes
   (testing "creates an empty array"
     (is (empty? (fs/->file-attributes))))
   (testing "creates an array with posix file permissions set"
@@ -96,7 +89,7 @@
                vec
                frequencies)))))
 
-(deftest join-paths
+(deftest test-join-paths
   (testing "joins a single path segment"
     (is (= "foo" (fs/join-paths "foo"))))
   (testing "joins multiple path segments"
@@ -110,7 +103,7 @@
   (testing "does not double up on file separators"
     (is (= "foo/bar/baz" (fs/join-paths "foo/" "bar//" "baz")))))
 
-(deftest split-path
+(deftest test-split-path
   (testing "splits a single path segment"
     (is (= '("foo") (fs/split-path "foo"))))
   (testing "splits into multiple path segments"
@@ -120,7 +113,7 @@
   (testing "does not split on duplicated file separators"
     (is (= '("foo" "bar" "baz") (fs/split-path "foo//bar///baz")))))
 
-(deftest last-path-segment
+(deftest test-last-path-segment
   (testing "returns the last path segment"
     (is (= "foo.ext" (fs/last-path-segment "foo.ext")))
     (is (= "foo.ext" (fs/last-path-segment "bar/foo.ext")))
@@ -129,7 +122,7 @@
     (is (= "foo.ext" (fs/last-path-segment "/baz/bar/foo.ext")))
     (is (= "foo.ext" (fs/last-path-segment "/baz/bar/foo.ext/")))))
 
-(deftest filename
+(deftest test-filename
   (testing "returns the last path segment with no trailing file separator"
     (is (= "foo.ext" (fs/filename "foo.ext")))
     (is (= "foo.ext" (fs/filename "bar/foo.ext")))
@@ -139,7 +132,7 @@
     (is (nil? (fs/filename "/baz/bar/foo.ext/")))
     (is (nil? (fs/filename "/")))))
 
-(deftest parent-path
+(deftest test-parent-path
   (testing "returns nil if there is no parent path"
     (is (nil? (fs/parent-path "foo")))
     (is (nil? (fs/parent-path "/"))))
@@ -152,12 +145,12 @@
   (testing "returns the root path"
     (is (= "/" (fs/parent-path "/foo")))))
 
-(deftest parent-paths
+(deftest test-parent-paths
   (testing "returns a sequence of all parent paths"
     (is (= ["/foo/bar" "/foo" "/"] (vec (fs/parent-paths "/foo/bar/baz"))))
     (is (= ["foo/bar" "foo"] (vec (fs/parent-paths "foo/bar/baz"))))))
 
-(deftest child-of?
+(deftest test-child-of?
   (testing "returns true for paths where the child path is beneath the parent path"
     (is (fs/child-of? "/foo/bar" "/foo/bar/baz"))
     (is (fs/child-of? "foo/bar" "foo/bar/baz")))
@@ -167,7 +160,7 @@
     (is (not (fs/child-of? "foo/bar" "/foo/bar/baz")))
     (is (not (fs/child-of? "/foo/bar/baz" "/foo/bar/qux")))))
 
-(deftest extension
+(deftest test-extension
   (testing "returns a file extension when present"
     (is (= "ext" (fs/extension "/foo/bar/baz.ext")))
     (is (= "e" (fs/extension "foo/bar/baz.e"))))
@@ -178,7 +171,7 @@
     (is (nil? (fs/extension "/foo/bar/.baz")))
     (is (nil? (fs/extension "/foo/bar/b.az/")))))
 
-(deftest without-extension
+(deftest test-without-extension
   (testing "returns a path without the file extension"
     (is (= "/foo/bar/baz" (fs/without-extension "/foo/bar/baz.ext")))
     (is (= "foo/bar/baz" (fs/without-extension "foo/bar/baz.e"))))
@@ -189,12 +182,12 @@
     (is (= "/foo/bar/.baz" (fs/without-extension "/foo/bar/.baz")))
     (is (= "/foo/bar/b.az/" (fs/without-extension "/foo/bar/b.az/")))))
 
-(deftest normalize-path
+(deftest test-normalize-path
   (testing "normalizes the path"
     (is (= "foo/baz" (fs/normalize-path "foo/bar/.././baz")))
     (is (= "/foo/baz" (fs/normalize-path "/foo/bar/.././baz")))))
 
-(deftest absolute-path?
+(deftest test-absolute-path?
   (testing "returns true for absolute paths"
     (doseq [path ["/" "/foo" "/foo/bar"]]
       (is (true? (fs/absolute-path? path)))))
@@ -202,7 +195,7 @@
     (doseq [path ["" "foo" "foo/bar"]]
       (is (false? (fs/absolute-path? path))))))
 
-(deftest relative-path?
+(deftest test-relative-path?
   (testing "returns false for relative paths"
     (doseq [path ["/" "/foo" "/foo/bar"]]
       (is (false? (fs/relative-path? path)))))
@@ -210,7 +203,7 @@
     (doseq [path ["" "foo" "foo/bar"]]
       (is (true? (fs/relative-path? path))))))
 
-(deftest with-temp-directory
+(deftest test-with-temp-directory
   (testing "creates a temp directory and passes it into the function and deletes afterwards"
     (let [dir (volatile! nil)]
       (fs/with-temp-directory path
@@ -218,7 +211,7 @@
         (is (let [file (fs/as-file path)]
               (and (.exists file)
                    (.isDirectory file)))))
-      (is (.startsWith @dir tmpdir))
+      (is (.startsWith @dir fs/tmpdir))
       (is (not (.exists (fs/as-file @dir)))))))
   (testing "recursively deletes everything within that directory"
     (let [dir (volatile! nil)]
@@ -228,11 +221,11 @@
           (io/make-parents file)
           (fs/create-file file)
           (is (.exists file))
-          (is (.startsWith (.getPath file) tmpdir))))
-      (is (.startsWith @dir tmpdir))
+          (is (.startsWith (.getPath file) fs/tmpdir))))
+      (is (.startsWith @dir fs/tmpdir))
       (is (not (.exists (fs/as-file @dir))))))
 
-(deftest with-temp-file
+(deftest test-with-temp-file
   (testing "calls the function with a path to an existing file"
     (let [path (volatile! nil)]
       (fs/with-temp-file p
@@ -240,19 +233,19 @@
         (is (let [file (fs/as-file p)]
               (and (.exists file)
                    (.isFile file)))))
-      (is (.startsWith @path tmpdir))
+      (is (.startsWith @path fs/tmpdir))
       (let [file (fs/as-file @path)]
         (is (not (.exists file)))
         (is (not (.exists (.getParentFile file))))))))
 
-(deftest absolute-path
+(deftest test-absolute-path
   (testing "returns the absolute path"
     (is (= (str fs/current-path "/foo")
            (fs/absolute-path "foo")))
     (is (= "/foo/bar"
            (fs/absolute-path "/foo/bar")))))
 
-(deftest canonical-path
+(deftest test-canonical-path
   (testing "returns the canonical path"
     (is (= "/bar/baz" (fs/canonical-path "/foo/../bar/./baz")))
     (fs/with-temp-directory path
@@ -261,7 +254,7 @@
       (is (= (fs/join-paths path "foo")
              (fs/canonical-path (fs/join-paths path "bar")))))))
 
-(deftest children
+(deftest test-children
   (testing "returns the child paths of the current directory"
     (is (= (vec (.list (fs/as-file ".")))
            (fs/children))))
@@ -273,7 +266,7 @@
       (is (= ["bar" "baz" "foo"]
              (sort (fs/children path)))))))
 
-(deftest size
+(deftest test-size
   (testing "returns nil when a file does not exist"
     (is (nil? (fs/size "asdfasdfasdfasdfasdf"))))
   (testing "returns the file size in bytes of a file that exists"
@@ -281,7 +274,7 @@
       (fs/append-to-file path "abcd1234")
       (is (= 8 (fs/size path))))))
 
-(deftest exists?
+(deftest test-exists?
   (testing "returns true when something exists at that path"
     (fs/with-temp-directory path
       (is (fs/exists? path))))
@@ -294,7 +287,7 @@
       (is (not (fs/exists? (fs/join-paths path "foo"))))
       (is (fs/exists? (fs/join-paths path "foo") :nofollow-links true)))))
 
-(deftest directory?
+(deftest test-directory?
   (testing "returns true for directories"
     (fs/with-temp-directory path
       (is (fs/directory? path))))
@@ -308,7 +301,7 @@
         (is (fs/directory? link-path))
         (is (not (fs/directory? link-path :nofollow-links true)))))))
 
-(deftest executable?
+(deftest test-executable?
   (testing "returns true for executable files"
     (fs/with-temp-file path
       (fs/set-posix-file-permissions path 700)
@@ -318,7 +311,7 @@
       (fs/set-posix-file-permissions path 600)
       (is (not (fs/executable? path))))))
 
-(deftest hidden?
+(deftest test-hidden?
   (testing "returns true for hidden files"
     (fs/with-temp-directory path
       (let [file-path (fs/join-paths path ".file")]
@@ -328,7 +321,7 @@
     (fs/with-temp-file path
       (is (not (fs/hidden? path))))))
 
-(deftest writable?
+(deftest test-writable?
   (testing "returns true for files that are writable"
     (fs/with-temp-file path
       (fs/set-posix-file-permissions path 700)
@@ -338,7 +331,7 @@
       (fs/set-posix-file-permissions path 400)
       (is (not (fs/writable? path))))))
 
-(deftest readable?
+(deftest test-readable?
   (testing "returns true for files that are readable"
     (fs/with-temp-file path
       (fs/set-posix-file-permissions path 700)
@@ -348,7 +341,7 @@
       (fs/set-posix-file-permissions path 300)
       (is (not (fs/readable? path))))))
 
-(deftest regular-file?
+(deftest test-regular-file?
   (testing "returns true for regular files"
     (fs/with-temp-file path
       (is (fs/regular-file? path))))
@@ -362,7 +355,7 @@
         (is (fs/regular-file? link-path))
         (is (not (fs/regular-file? link-path :nofollow-links true)))))))
 
-(deftest same-file?
+(deftest test-same-file?
   (testing "returns true when the files are the same"
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
@@ -382,7 +375,7 @@
         (fs/create-file file2 :content "asdf")
         (is (not (fs/same-file? file1 file2)))))))
 
-(deftest symlink?
+(deftest test-symlink?
   (testing "returns true when the file is a symlink"
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
@@ -394,7 +387,7 @@
     (fs/with-temp-directory path
       (is (not (fs/symlink? path))))))
 
-(deftest copy
+(deftest test-copy
   (testing "copies a file from one location to another"
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
@@ -449,7 +442,7 @@
         (is (not (fs/symlink? file3)))
         (is (fs/symlink? file4))))))
 
-(deftest copy-recursively
+(deftest test-copy-recursively
   (testing "copies files"
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
@@ -521,7 +514,7 @@
         (is (not (fs/symlink? file3)))
         (is (fs/symlink? file4))))))
 
-(deftest move
+(deftest test-move
   (testing "moves files"
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
@@ -559,7 +552,7 @@
         (is (not (fs/exists? file1)))
         (is (fs/exists? file2))))))
 
-(deftest rename
+(deftest test-rename
   (testing "renames a file"
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
@@ -597,7 +590,7 @@
         (is (not (fs/exists? file1)))
         (is (fs/exists? file2))))))
 
-(deftest create-directory
+(deftest test-create-directory
   (testing "creates a directory"
     (fs/with-temp-directory path
       (let [dir (fs/join-paths path "dir")]
@@ -610,7 +603,7 @@
         (is (fs/directory? dir))
         (is (= 200 (fs/get-posix-file-permissions dir :format :octal)))))))
 
-(deftest create-directories
+(deftest test-create-directories
   (testing "creates a directory and all parent directories"
     (fs/with-temp-directory path
       (let [dir (fs/join-paths path "dir1" "dir2" "dir3")]
@@ -624,14 +617,28 @@
         (is (= 700 (fs/get-posix-file-permissions dir :format :octal)))
         (is (= 700 (fs/get-posix-file-permissions (fs/parent-path dir) :format :octal)))))))
 
-(deftest append-to-file
+(deftest test-create-temp-directory
+  (testing "creates a temp directory with the given prefix"
+    (let [path (fs/canonical-path (fs/create-temp-directory "test-fs"))]
+      (try
+        (is (fs/directory? path))
+        (is (.startsWith path (str fs/tmpdir "/")))
+        (is (.startsWith (fs/last-path-segment path) "test-fs"))
+        (finally (fs/delete-recursively path)))))
+  (testing "creates a directory with posix file permissions"
+    (let [path (fs/create-temp-directory "test-fs" :posix-file-permissions 200)]
+      (try
+        (is (= 200 (fs/get-posix-file-permissions path :format :octal)))
+        (finally (fs/delete-recursively path))))))
+
+(deftest test-append-to-file
   (testing "appends content to a file"
     (fs/with-temp-file path
       (fs/append-to-file path "asdf")
       (fs/append-to-file path "fdsa")
       (is (= "asdffdsa" (slurp path))))))
 
-(deftest create-file
+(deftest test-create-file
   (testing "creates a file"
     (fs/with-temp-directory path
       (let [file (fs/join-paths path "file")]
@@ -644,7 +651,7 @@
         (is (fs/regular-file? file))
         (is (= 200 (fs/get-posix-file-permissions file :format :octal)))))))
 
-(deftest create-link
+(deftest test-create-link
   (testing "creates a hard link to a file"
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
@@ -655,7 +662,7 @@
         (is (fs/regular-file? file2))
         (is (fs/same-file? file1 file2))))))
 
-(deftest create-symlink
+(deftest test-create-symlink
   (testing "creates a symbolic link to a file"
     (fs/with-temp-directory path
       (let [file1 (fs/join-paths path "file1")
@@ -666,7 +673,7 @@
         (is (fs/symlink? file2))
         (is (fs/same-file? file1 file2))))))
 
-(deftest delete
+(deftest test-delete
   (testing "deletes a file"
     (fs/with-temp-directory path
       (let [file (fs/join-paths path "file")]
@@ -675,9 +682,47 @@
         (fs/delete file)
         (is (not (fs/exists? file)))))))
 
-(deftest delete-if-exists
+(deftest test-delete-if-exists
   (testing "does not throw an error when the file does not exist"
     (fs/with-temp-directory path
       (let [file (fs/join-paths path "file")]
         (is (thrown? NoSuchFileException (fs/delete file)))
         (fs/delete-if-exists file)))))
+
+(deftest test-delete-recursively
+  (testing "deletes recursively"
+    (fs/with-temp-directory path
+      (let [dir (fs/join-paths path "dir")
+            file1 (fs/join-paths path "dir" "file1")
+            file2 (fs/join-paths path "dir" "file2")]
+        (fs/create-directory dir)
+        (fs/create-file file1)
+        (fs/create-file file2)
+        (is (fs/exists? dir))
+        (fs/delete-recursively dir)
+        (is (not (fs/exists? dir))))))
+  (testing "deletes recursively with the nofollow-links option"
+    (fs/with-temp-directory path
+      (let [dir1 (fs/join-paths path "dir1")
+            dir2 (fs/join-paths path "dir2")
+            file1 (fs/join-paths path "dir1" "file1")
+            file2 (fs/join-paths path "dir1" "file2")]
+        (fs/create-directory dir1)
+        (fs/create-symlink dir2 dir1)
+        (fs/create-file file1)
+        (fs/create-file file2)
+        (is (fs/exists? dir1))
+        (is (fs/exists? dir2))
+        (fs/delete-recursively dir2 :nofollow-links true)
+        (is (not (fs/exists? dir2)))
+        (is (fs/exists? dir1))))))
+
+(deftest test-file-system-for
+  (testing "returns the filesystem for a path"
+    (is (= fs/default-file-system
+           (fs/file-system-for "/")))))
+
+(deftest test-supported-file-attribute-views
+  (testing "returns the list of supported file attribute views"
+    (is (= #{"owner" "basic" "posix" "unix"}
+           (fs/supported-file-attribute-views "/")))))

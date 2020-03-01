@@ -23,6 +23,12 @@
 (def default-file-system (FileSystems/getDefault))
 (def file-separator (.getSeparator default-file-system))
 (def current-path (.getCanonicalPath (io/file ".")))
+(def tmpdir
+  ^{:doc "The system temp directory."}
+  (-> "java.io.tmpdir"
+      System/getProperty
+      io/file
+      .getCanonicalPath))
 
 (def home
   ^{:doc "The current user's home directory."}
@@ -364,6 +370,14 @@
   [path & {:keys [posix-file-permissions]}]
   (Files/createDirectories (as-path path) (->file-attributes :posix-file-permissions posix-file-permissions)))
 
+(defn create-temp-directory
+  "Warning: Setting posix-file-permissions on create will not always
+  result in the permissions you specify. This is a limitation of the
+  implementation. To guarantee those permissions you should set the
+  permissions as another step after creating the file."
+  [prefix & {:keys [posix-file-permissions]}]
+  (Files/createTempDirectory prefix (->file-attributes :posix-file-permissions posix-file-permissions)))
+
 (defn append-to-file
   [path content]
   (spit (as-file path) content :append true))
@@ -374,9 +388,21 @@
   implementation. To guarantee those permissions you should set the
   permissions as another step after creating the file."
   [path & {:keys [posix-file-permissions content]}]
-  (Files/createFile (as-path path) (->file-attributes :posix-file-permissions posix-file-permissions))
-  (when content
-    (append-to-file path content)))
+  (let [file (Files/createFile (as-path path) (->file-attributes :posix-file-permissions posix-file-permissions))]
+    (when content
+      (append-to-file path content))
+    file))
+
+(defn create-temp-file
+  "Warning: Setting posix-file-permissions on create will not always
+  result in the permissions you specify. This is a limitation of the
+  implementation. To guarantee those permissions you should set the
+  permissions as another step after creating the file."
+  [prefix suffix & {:keys [posix-file-permissions content]}]
+  (let [path (Files/createTempFile prefix suffix (->file-attributes :posix-file-permissions posix-file-permissions))]
+    (when content
+      (append-to-file path content))
+    path))
 
 (defn create-link
   [link-path target-path]
