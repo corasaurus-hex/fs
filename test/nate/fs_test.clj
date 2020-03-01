@@ -10,7 +10,10 @@
                           LinkOption
                           StandardCopyOption
                           Path)
-           (java.nio.file.attribute PosixFilePermission)))
+           (java.nio.file.attribute FileTime
+                                    PosixFilePermission)))
+
+(def epoch (FileTime/fromMillis 0))
 
 (deftest test-as-path
   (testing "creates a path object"
@@ -651,6 +654,22 @@
         (is (fs/regular-file? file))
         (is (= 200 (fs/get-posix-file-permissions file {:format :octal})))))))
 
+(deftest test-create-temp-file
+  (testing "creates a temp file"
+    (let [path (fs/create-temp-file "prefix" "suffix")
+          filename (fs/last-path-segment path)]
+      (try
+        (is (fs/regular-file? path))
+        (is (.startsWith filename "prefix"))
+        (is (.endsWith filename "suffix"))
+        (finally (fs/delete path)))))
+  (testing "creates a temp file with posix file permissions"
+    (let [path (fs/create-temp-file "prefix" "suffix" {:posix-file-permissions 200})]
+      (try
+        (is (fs/regular-file? path))
+        (is (= 200 (fs/get-posix-file-permissions path {:format :octal})))
+        (finally (fs/delete path))))))
+
 (deftest test-create-link
   (testing "creates a hard link to a file"
     (fs/with-temp-directory path
@@ -726,3 +745,21 @@
   (testing "returns the list of supported file attribute views"
     (is (= #{"owner" "basic" "posix" "unix"}
            (fs/supported-file-attribute-views "/")))))
+
+(deftest test-get-attribute
+  (testing "gets an attribute"
+    (fs/with-temp-directory path
+      (is (= true (fs/get-attribute path "basic:isDirectory")))))
+  (testing "gets an attribute with nofollow-links"
+    (fs/with-temp-directory path
+      (let [link (fs/create-symlink (fs/join-paths path "link") path)]
+        (is (= true (fs/get-attribute link "basic:isDirectory")))
+        (is (= false (fs/get-attribute link "basic:isDirectory" {:nofollow-links true})))))))
+
+(deftest test-set-attribute
+  (testing "sets an attribute"
+    (fs/with-temp-directory path
+      (let [original (fs/get-attribute path "basic:lastModifiedTime")]
+        (is (= original (fs/get-attribute path "basic:lastModifiedTime")))
+        (fs/set-attribute path "basic:lastModifiedTime" epoch)
+        (is (not= original (fs/get-attribute path "basic:lastModifiedTime")))))))
