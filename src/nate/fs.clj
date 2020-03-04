@@ -1,5 +1,5 @@
 (ns nate.fs
-  {:clj-kondo/config '{:lint-as {nate.fs/with-temp-directory cljs.test/async}}}
+  {:clj-kondo/config '{:lint-as {nate.fs/with-temp-directory clojure.core/fn}}}
   (:require [clojure.java.io :as io]
             [clojure.string :as string])
   (:import (java.nio.file CopyOption
@@ -631,14 +631,14 @@
       (finally
         (delete-recursively dir)))))
 
-(defmacro with-temp-directory [path-sym & body]
+(defmacro with-temp-directory [[path-sym] & body]
   `(with-temp-directory* (fn [~path-sym] ~@body)))
 
 (defn with-temp-file*
   [f]
-  (with-temp-directory path
-    (let [file-path (canonical-path (Files/createTempFile (as-path path) "tmp" "tmp" (->file-attributes)))]
-      (f file-path))))
+  (with-temp-directory [dir-path]
+    (let [file-path (canonical-path (Files/createTempFile (as-path dir-path) "tmp" "tmp" (->file-attributes)))]
+      (f dir-path file-path))))
 
-(defmacro with-temp-file [path-sym & body]
-  `(with-temp-file* (fn [~path-sym] ~@body)))
+(defmacro with-temp-file [[dir-sym path-sym] & body]
+  `(with-temp-file* (fn [~dir-sym ~path-sym] ~@body)))
