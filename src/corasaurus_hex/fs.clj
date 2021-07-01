@@ -1,5 +1,5 @@
-(ns nate.fs
-  {:clj-kondo/config '{:lint-as {nate.fs/with-temp-directory clojure.core/fn}}}
+(ns corasaurus-hex.fs
+  {:clj-kondo/config '{:lint-as {corasaurus-hex.fs/with-temp-directory clojure.core/fn}}}
   (:require [clojure.java.io :as io]
             [clojure.string :as string])
   (:import (java.nio.file CopyOption

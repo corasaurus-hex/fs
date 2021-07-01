@@ -1,9 +1,9 @@
-(ns nate.fs-test
+(ns corasaurus-hex.fs-test
   {:clj-kondo/config '{:linters {:unresolved-symbol {:exclude []}}
-                       :lint-as {nate.fs/with-temp-directory clojure.core/fn
-                                 nate.fs/with-temp-file clojure.core/fn}}}
+                       :lint-as {corasaurus-hex.fs/with-temp-directory clojure.core/fn
+                                 corasaurus-hex.fs/with-temp-file clojure.core/fn}}}
   (:require [clojure.test :as test :refer [deftest is testing]]
-            [nate.fs :as fs]
+            [corasaurus-hex.fs :as fs]
             [clojure.java.io :as io])
   (:import (java.nio.file FileAlreadyExistsException
                           NoSuchFileException

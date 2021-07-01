@@ -1,7 +1,7 @@
 {:aliases {:test-bb {:extra-deps {borkdude/spartan.test {:git/url "https://github.com/borkdude/spartan.test.git"
                                                          :sha "f3079bf153ed102fca07fe31bf8737cf823f9936"}}
                      :extra-paths ["test"]
-                     :main-opts ["-m" "spartan.test" "-n" "nate.fs-test"]}
+                     :main-opts ["-m" "spartan.test" "-n" "corasaurus-hex.fs-test"]}
            :test-clj {:extra-paths ["test"]
                       :extra-deps {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
                                                               :sha "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}

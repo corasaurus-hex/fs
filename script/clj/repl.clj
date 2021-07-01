@@ -2,5 +2,5 @@
 
 (clojure.main/repl
  :init #(do
-          (require '[nate.fs :as fs])
-          (in-ns 'nate.fs)))
+          (require '[corasaurus-hex.fs :as fs])
+          (in-ns 'corasaurus-hex.fs)))
